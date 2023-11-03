@@ -1,0 +1,3164 @@
+---
+title: "UKB_PGCED3"
+output: html_document
+---
+
+This script identifies eating disorder cases (specifically, AN, BE [broad] and BE [narrow]) within UK Biobank.
+
+Four ways to identify cases:
+   1. HES (Hospital Episode Statistics)
+   2. Mental health questionnaire
+   3. GP records
+   4. Death records
+
+# Set up
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Delete everything in your global environment
+```{r Delete everything in your global environment}
+remove(list = ls())
+```
+
+Read in file with path info
+```{r Read in file with path info}
+source(file = "../credentials/paths_UKB.R")
+```
+
+# Load packages
+```{r load packages}
+#install.packages("devtools")
+library(devtools)
+
+# Install Ken's UKB KCL package
+#devtools::install_github("kenhanscombe/ukbkings",
+#          dependencies = TRUE,
+#           force = TRUE)
+#
+library(ukbkings)
+
+#install.packages("DescTools")
+library(DescTools)
+
+#install.packages("stringi")
+#library(stringi)
+
+#install.packages("tidyverse")
+library(tidyverse)
+
+#install.packages("tidyr")
+library(tidyr)
+```
+
+You need a file with required fields, one per line, no header.
+```{r obtain file with required fields}
+# Point to the project directory
+project_dir <- paste0(file = project_dir_path)
+
+# Read the project field-to-name “field finder” file
+f <- ukbkings::bio_field(project_dir)
+
+# inspect the variable metadata
+head(f)
+glimpse(f)
+
+# display the number of baskets included.
+f %>%
+distinct(basket)
+```
+
+```{r Search for variables required }
+f %>%
+select(name, field) %>%
+page(method = "print")
+```
+
+Add their field codes to a file, one per line, no header. You can page through the file.
+```{r add field codes to file}
+strings <- c("eid",
+             "20544")
+
+f %>%
+select(field, name) %>%
+filter(str_detect(field,
+                  paste(strings, collapse = "|"))) %>%
+  bio_field_add("small_field_subset.txt")
+```
+
+Read required fields and save as an rds file in your user directory. Argument out should be a path to your UKB user directory
+```{r save required fields as rds}
+bio_phen(
+ project_dir,
+ field = "small_field_subset.txt",
+ out = "small_phenotype_subset"
+)
+```
+
+Check the size of your file and read in your dataset
+```{r read in dataset}
+system("ls -lh small_phenotype_subset.rds")
+df <- readRDS("small_phenotype_subset.rds")
+```
+
+Rename columns from the default UKB field names to the descriptive names used in the field-to-name “field finder” name column.
+```{r rename columns using bio_rename}
+df <- bio_rename(df, f)
+nrow(df)
+```
+
+# MHQ: Mental health problems ever diagnosed by a professional ###
+## Coding for diagnoses by healthcare professional
+1	Social anxiety or social phobia
+2	Schizophrenia
+3	Any other type of psychosis or psychotic illness
+4	A personality disorder
+5	Any other phobia (eg disabling fear of heights or spiders)
+6	Panic attacks
+7	Obsessive compulsive disorder (OCD)
+10	Mania, hypomania, bipolar or manic-depression
+11	Depression
+12	Bulimia nervosa
+13	Psychological over-eating or binge-eating
+14	Autism, Asperger's or autistic spectrum disorder
+15	Anxiety, nerves or generalized anxiety disorder
+16	Anorexia nervosa
+17	Agoraphobia
+18	Attention deficit or attention deficit and hyperactivity disorder (ADD/ADHD)
+-818	Prefer not to answer (group A)
+-819	Prefer not to answer (group B)
+
+### Anorexia nerovsa
+```{r MHQ anorexia nervosa}
+df <- df %>%
+  mutate(AN_MHQ = 
+           case_when(mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_1 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_2 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_3 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_4 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_5 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_6 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_7 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_8 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_9 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_10 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_11 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_12 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_13 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_14 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_15 == "16" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_16 == "16" ~ 1
+           ))
+
+df %>%
+  count(AN_MHQ) # 891
+```
+
+### Bulimia nervosa
+```{r MHQ bulimia nervosa}
+df <- df %>%
+  mutate(BN_MHQ =
+           case_when(
+          mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_1 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_2 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_3 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_4 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_5 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_6 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_7 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_8 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_9 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_10 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_11 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_12 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_13 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_14 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_15 == "12" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_16 == "12" ~1
+          )
+  )
+
+df %>%
+  count(BN_MHQ) # 503
+```
+
+### Psychological over-eating or binge-eating
+NB: This can only be included in PRS. These people should be excluded from controls AND cases.
+```{r MHQ psych overeating or binge eating}
+df <- df %>%
+  mutate(psych_overeating_or_BE_MHQ =
+           case_when(
+          mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_1 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_2 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_3 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_4 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_5 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_6 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_7 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_8 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_9 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_10 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_11 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_12 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_13 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_14 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_15 == "13" |
+           mental_health_problems_ever_diagnosed_by_a_professional_f20544_0_16 == "13" ~ 1
+     )
+  )
+
+
+df %>%
+  count(psych_overeating_or_BE_MHQ) #707
+```
+
+Select columns
+```{r MHQ select columns}
+MHQ_dat <- df %>%
+  select(eid,
+         AN_MHQ,
+         BN_MHQ,
+         psych_overeating_or_BE_MHQ)
+
+# Check
+colnames(MHQ_dat)
+
+nrow(MHQ_dat) # 502,538
+```
+
+Filter out non-cases (to make dataset smaller)
+```{r MHQ filter out non-cases}
+MHQ_dat_cases <- MHQ_dat %>%
+  filter(AN_MHQ == 1 |
+          BN_MHQ == 1)
+
+# Not selecting "psychological overeating or binge eating" as this can only be used in PRS
+
+nrow(MHQ_dat_cases) # 1252
+```
+ 
+Remove mhq dat to save memory (only need MHQ_dat_cases)
+```{r MHQ remove mhq dat to save memory}
+rm(MHQ_dat)
+rm(df)
+gc()
+```
+
+# HES in-patient data 
+NB: Within the hospital inpatient dataset, each inpatient episode for a participant is stored as a single record, i.e. a row of data, or as multiple contiguous records. This is unlike the format of the UK Biobank main dataset, which provides a single row of data per participant. See here: https://biobank.ndph.ox.ac.uk/showcase/ukb/docs/HospitalEpisodeStatistics.pdf
+```{r HES read in diagnosis data}
+hesin_diag_diskframe <- bio_record(project_dir, record = "hesin_diag")
+
+hesin_diag <- hesin_diag_diskframe %>%
+    select(eid,
+           diag_icd9,
+           diag_icd10,
+           ) %>%
+    collect()
+
+nrow(hesin_diag)
+colnames(hesin_diag)
+```
+
+## ICD9 - WHO International Classification of Diseases
+```{r HES ICD9 cases}
+# Anorexia nervosa
+hesin_diag <- hesin_diag %>%
+  mutate(ICD9_AN =
+           case_when(diag_icd9 == "3071" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD9_AN) # 1
+```
+
+## ICD10 - WHO International Classification of Diseases
+```{r HES ICD10 cases}
+# Anorexia nervosa
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_AN =
+           case_when(diag_icd10 == "F500" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_AN) # 255
+
+# Atypical anorexia nervosa
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_AAN =
+           case_when(diag_icd10 == "F501" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_AAN)  # 11
+
+# Bulimia nervosa
+hesin_diag <- hesin_diag %>%
+  mutate(ICD10_BN =
+           case_when(diag_icd10 == "F502" ~ 1
+            ))
+
+hesin_diag %>%
+  count(ICD10_BN)  # 80
+```
+
+Create new dataframes of each disorder then merge by eid (because each row is a data entry rather than a participant [i.e., a participant may have reported HES multiple times], need to create a dataframe without any duplicated IDs. Have only included ICD9/10 codes that had >0 participants' endorsement)
+```{r HES new dataframe of each disorder anorexia nervosa}
+# Anorexia nervosa
+hesin_AN <- hesin_diag %>%
+  filter(ICD9_AN == 1 |
+          ICD10_AN == 1 
+           )
+
+hesin_AN$ICD_AN <- 1
+
+hesin_AN <- hesin_AN %>%
+  select(eid, 
+         ICD_AN)
+
+# check no. of rows
+nrow(hesin_AN)
+
+# check no. of unique IDs 
+length(unique(hesin_AN$eid))
+
+# Keep only unique IDs
+hesin_AN <- hesin_AN %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r HES new dataframe of each disorder atypical anorexia nervosa}
+# Atypical anorexia nervosa
+hesin_AAN <- hesin_diag %>%
+  filter(ICD10_AAN == 1)
+
+hesin_AAN$ICD10_AAN <- 1 
+
+hesin_AAN <- hesin_AAN %>%
+  select(eid, 
+         ICD10_AAN)
+
+# check no. of rows
+nrow(hesin_AAN)
+
+# check no. of unique IDs 
+length(unique(hesin_AAN$eid))
+
+# Keep only unique IDs
+hesin_AAN <- hesin_AAN %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r HES new dataframe of each disorder bulimia nervosa}
+# Bulimia nervosa
+hesin_BN <- hesin_diag %>%
+  filter(ICD10_BN == 1)
+
+hesin_BN$ICD10_BN <- 1 
+
+hesin_BN <- hesin_BN %>%
+  select(eid, 
+         ICD10_BN)
+
+# check no. of rows
+nrow(hesin_BN)
+
+# check no. of unique IDs 
+length(unique(hesin_BN$eid))
+
+# Keep only unique IDs
+hesin_BN <- hesin_BN %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r HES merge by ID}
+# Merge by ID
+hesin_merged_ID <- list(
+  hesin_AN,
+  hesin_AAN,
+  hesin_BN) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+hesin_merged_ID %>%
+  colnames()
+
+hesin_merged_ID %>%
+  nrow()
+
+# Check same as nrow
+length(unique(hesin_merged_ID$eid))
+```
+
+Remove HES data to save memory (only need hesin_merged_ID)
+```{r HES remove to save memory}
+rm(hesin_AN)
+rm(hesin_AAN)
+rm(hesin_BN)
+gc()
+```
+
+# HES data exclusion criteria 
+(NB: this will be applied to GP "anorexia" cases)
+
+## Malignant neoplasms ICD9
+```{r HES data exclusion criteria malignant neoplasms ICD9}
+# Convert empty spaces to NA
+hesin_diag <- mutate_all(hesin_diag, list(~na_if(.,"")))
+
+# Malignant neoplasms - ICD9
+hesin_diag_exclusion <- hesin_diag %>%
+  mutate(malignant_neoplasms_ICD9 =
+           case_when(
+                       (diag_icd9 > 1400 &
+                       diag_icd9 < 2100) |
+                         
+                         (diag_icd9 > 140 &
+                         diag_icd9 < 210) ~ 1,
+                       
+                       is.na(diag_icd9) ~ NA_real_,
+                       
+                       TRUE ~ 0
+                     )
+         )
+         
+
+hesin_diag_exclusion %>%
+  count(malignant_neoplasms_ICD9) # 2117
+
+# Create dataset of malignant neoplasm cases
+hesin_malignant_neo_ICD9_case <- hesin_diag_exclusion %>%
+  filter(malignant_neoplasms_ICD9 == 1) 
+
+hesin_malignant_neo_ICD9_case <- hesin_malignant_neo_ICD9_case %>%
+  select(eid, 
+         malignant_neoplasms_ICD9)
+
+# check no. of rows
+nrow(hesin_malignant_neo_ICD9_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_malignant_neo_ICD9_case$eid))
+
+# Filter out non-unique IDs
+hesin_malignant_neo_ICD9_case <- hesin_malignant_neo_ICD9_case %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+```
+
+Create dataset of people without malignant neoplasms 
+```{r HES data exclusion criteria NO malignant neoplasms ICD9}
+hesin_malignant_neo_ICD9_not_case <- hesin_diag_exclusion %>%
+  filter(malignant_neoplasms_ICD9 == 0) 
+
+hesin_malignant_neo_ICD9_not_case$no_malignant_neoplasms_ICD9 <- 1
+
+hesin_malignant_neo_ICD9_not_case <- hesin_malignant_neo_ICD9_not_case %>%
+  select(eid, 
+         no_malignant_neoplasms_ICD9)
+
+# check no. of rows
+nrow(hesin_malignant_neo_ICD9_not_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_malignant_neo_ICD9_not_case$eid))
+
+# Filter out non-unique IDs
+hesin_malignant_neo_ICD9_not_case <- hesin_malignant_neo_ICD9_not_case %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Merge the two datasets
+```{r HES data exclusion criteria malignant neoplasms ICD9 merged}
+hesin_malignant_neo_ICD_9_ID <- list(
+  hesin_malignant_neo_ICD9_case,
+  hesin_malignant_neo_ICD9_not_case
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+hesin_malignant_neo_ICD_9_ID %>%
+  nrow()
+
+length(unique(hesin_malignant_neo_ICD_9_ID$eid))
+
+hesin_malignant_neo_ICD_9_ID %>%
+  count(malignant_neoplasms_ICD9)
+
+hesin_malignant_neo_ICD_9_ID %>%
+  count(no_malignant_neoplasms_ICD9)
+# Now have a dataset with no dup IDs, and one column for malignant neoplasms (1 or NA) and the other for no malignant neoplasms (1 or NA). You can only be a true "no malignant neoplasms" if you also do NOT have a 1 in the other column. (Each row is a data entry, not a participant)
+```
+
+## Neoplasms ICD9
+```{r HES data exclusion criteria ICD9 neoplasms}
+## Neoplasms - ICD9
+hesin_diag_exclusion <- hesin_diag_exclusion %>%
+  mutate(neoplasms_ICD9 =
+           case_when(
+                       (diag_icd9 > 2300 &
+                       diag_icd9 < 2400) |
+                         
+                         (diag_icd9 > 230 &
+                         diag_icd9 < 240) ~ 1,
+                       
+                       is.na(diag_icd9) ~ NA_real_,
+                       
+                      TRUE ~ 0
+                     )
+         )
+
+hesin_diag_exclusion %>%
+  count(neoplasms_ICD9) # 244
+
+# Create dataset of cases
+hesin_neo_ICD9_case <- hesin_diag_exclusion %>%
+  filter(neoplasms_ICD9 == 1) 
+
+hesin_neo_ICD9_case <- hesin_neo_ICD9_case %>%
+  select(eid, 
+         neoplasms_ICD9)
+
+# check no. of rows
+nrow(hesin_neo_ICD9_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_neo_ICD9_case$eid))
+
+hesin_neo_ICD9_case <- hesin_neo_ICD9_case %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r HES data exclusion criteria NO ICD9 neoplasms}
+# Create dataset of people with NO neoplasms
+hesin_neo_ICD9_not_case <- hesin_diag_exclusion %>%
+  filter(neoplasms_ICD9 == 0) 
+
+hesin_neo_ICD9_not_case$no_neoplasms_ICD9 <- 1
+
+hesin_neo_ICD9_not_case <- hesin_neo_ICD9_not_case %>%
+  select(eid, 
+         no_neoplasms_ICD9)
+
+# check no. of rows
+nrow(hesin_neo_ICD9_not_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_neo_ICD9_not_case$eid))
+
+hesin_neo_ICD9_not_case <- hesin_neo_ICD9_not_case %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r HES data exclusion criteria ICD9 neoplasms merge data}
+# Merge the two datasets
+hesin_neo_ID <- list(
+  hesin_neo_ICD9_case,
+  hesin_neo_ICD9_not_case
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+
+# Check
+hesin_neo_ID %>%
+  nrow()
+
+length(unique(hesin_neo_ID$eid))
+
+hesin_neo_ID %>%
+  count(neoplasms_ICD9)
+
+hesin_neo_ID %>%
+  count(no_neoplasms_ICD9)
+```
+
+## Malignant neoplasms ICD10
+C00 -D09 & D37 -D49
+```{r HES data exclusion criteria ICD10 malignant neoplasms}
+M_NEO <- c("C0",
+            "C1",
+           "C2",
+            "C3",
+           "C4",
+           "C5",
+           "C6",
+            "C7",
+           "C8",
+            "C9",
+           "D0",
+           
+           "D37",
+            "D38",
+           "D39",
+            "D40",
+           "D41",
+           "D42",
+           "D43",
+            "D44",
+           "D45",
+            "D46",
+           "D47",
+           "D48",
+            "D49"
+           )
+
+# MALIGNANT NEOPLASMS
+# Identify all data entries of an ICD10 code of malignant neoplasm
+hesin_diag_exclusion_ICD10 <- hesin_diag_exclusion %>%
+  filter(str_detect(diag_icd10,
+                  paste(M_NEO)))
+
+# Create new column to indicate malginant neoplasm according to ICD-10
+hesin_diag_exclusion_ICD10$ICD10_malignant_neo <- 1
+
+hesin_diag_exclusion_ICD10 %>%
+  count(ICD10_malignant_neo)
+
+length(unique(hesin_diag_exclusion_ICD10$eid))
+
+# Select only unique IDs
+hesin_diag_exclusion_ICD10_ID <- hesin_diag_exclusion_ICD10 %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Identify all data entries NOT of an ICD10 code of malignant neoplasm
+```{r HES data exclusion criteria ICD10 NO malignant neoplasms}
+# NO MALIGNANT NEOPLASMS
+hesin_diag_NOT_exclusion_ICD10 <- hesin_diag_exclusion %>%
+  filter(!str_detect(diag_icd10,
+                  paste(M_NEO)))
+
+# Test what happens to NAs
+test_NA <- hesin_diag_NOT_exclusion_ICD10 %>%
+  filter(is.na(diag_icd10))
+
+test_NA %>% # No NAs
+  nrow()
+
+# Create new column to indicate NO malginant neoplasm according to ICD-10
+hesin_diag_NOT_exclusion_ICD10$ICD10_NO_malignant_neo <- 1
+
+hesin_diag_NOT_exclusion_ICD10 %>%
+  count(ICD10_NO_malignant_neo)
+
+# See how many of the data entries are from unique IDs
+length(unique(hesin_diag_NOT_exclusion_ICD10$eid))
+
+# Select only unique IDs
+hesin_diag_NOT_exclusion_ICD10_ID <- hesin_diag_NOT_exclusion_ICD10 %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Merge two datasets
+```{r HES data exclusion criteria ICD10 malignant neoplasms merge datasets}
+# Merge the two datasets
+hesin_malignant_neo_ICD_10_ID <- list(
+  hesin_diag_exclusion_ICD10_ID, # Participants who at some point have met exclusion criteria
+  hesin_diag_NOT_exclusion_ICD10_ID # Participants who at some point have not met exclusion criteria (might overlap with above)
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Select only needed columns
+hesin_malignant_neo_ICD_10_ID <- hesin_malignant_neo_ICD_10_ID %>%
+  select(eid,
+        ICD10_NO_malignant_neo,
+        ICD10_malignant_neo)
+
+# Check
+hesin_malignant_neo_ICD_10_ID %>%
+  nrow()
+
+length(unique(hesin_malignant_neo_ICD_10_ID$eid)) # Number of unique IDs is same as number of rows = no dup IDs!
+
+hesin_malignant_neo_ICD_10_ID %>%
+  count(ICD10_NO_malignant_neo)
+
+hesin_malignant_neo_ICD_10_ID %>%
+  count(ICD10_malignant_neo)
+```
+
+## Further exclusion criteria ICD9 & ICD10 (i.e., beyond neoplasms)
+```{r HES data exclusion criteria further exclusion criteria} 
+# Cases after exclusion
+hesin_diag_exclusion <- hesin_diag_exclusion %>%
+  mutate(other_exclusion_codes =
+           case_when(
+              
+          # ICD9 exclusion codes
+           (diag_icd9 == "5645" |           # Functional diarrhea
+           diag_icd9 == "2780" |            # Obesity
+           diag_icd9 == "5569" |            # Idiopathic proctocolitis 
+           diag_icd9 == "5303" |            # Stricture and stenosis of esophagus
+           diag_icd9 == "5305" |            # Dyskinesia of esophagus
+           diag_icd9 == "5308" |            # Other specified disorders of esophagus
+            
+         # ICD10 exclusion codes
+          diag_icd10 == "K591"  |         # Functional diarrhea
+          diag_icd10 == "E660"  |         # Obesity due to excess calories
+          diag_icd10 == "K518"  |         # Other ulcerative colitis
+          diag_icd10 == "K512"  |         # Ulcerative (chronic) proctitis
+          diag_icd10 == "K513"  |         # Ulcerative (chronic) rectosigmoiditis
+          diag_icd10 == "K514"  |         # Pseudopolyposis of colon
+          diag_icd10 == "K515"  |         # Mucosal proctocolitis
+          diag_icd10 == "K519"  |         # Ulcerative colitis, unspecified
+          diag_icd10 == "K222"  |         # Oesophageal obstruction
+          diag_icd10 == "K224"  |         # Dyskinesia of oesophagus
+          diag_icd10 == "K228"  |         # Other specified diseases of oesophagus
+          diag_icd10 == "K219"  |         # Gastro-oesophageal reflux disease without oesophagitis
+          diag_icd10 == "J860"  |         # Pyothorax with fistula
+          diag_icd10 == "K227"  |         # Barrett's oesophagus
+          diag_icd10 == "K229"  |         # Disease of oesophagus, unspecified
+          diag_icd10 == "F840"  |         # Childhood autism
+          diag_icd10 == "F843"  |         # Other childhood disintegrative disorder
+          diag_icd10 == "F845"  |         # Asperger's syndrome
+          diag_icd10 == "F848"   |        # Other pervasive developmental disorders
+          diag_icd10 == "F849")  ~ 1,     # Pervasive developmental disorder, unspecified
+         
+          diag_icd9 != "5645" ~ 0, # Every data entry that is NOT this one (and also would NOT be any of the others above due to the nature of case_when). This captures people who do have A entry in ICD9, but not one that meets exclusion criteria. 
+           
+         is.na(diag_icd9) |
+          is.na(diag_icd10) ~ NA_real_, # Doesn't have any HES data (Entries with any non-exclusion criteria)
+           
+         TRUE ~ 0
+          
+          )
+  )
+
+# Check number
+hesin_diag_exclusion %>% 
+  count(other_exclusion_codes) 
+
+# Create dataset of cases
+hesin_other_exclusion_codes_case <- hesin_diag_exclusion %>%
+  filter(other_exclusion_codes == 1) 
+
+hesin_other_exclusion_codes_case <- hesin_other_exclusion_codes_case %>%
+  select(eid, 
+         other_exclusion_codes)
+
+# check no. of rows
+nrow(hesin_other_exclusion_codes_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_other_exclusion_codes_case$eid))
+
+hesin_other_exclusion_codes_case <- hesin_other_exclusion_codes_case %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Create dataset of entries not meeting exclusion criteria 
+```{r HES data exclusion criteria NO further exclusion criteria}
+hesin_other_exclusion_codes_not_case <- hesin_diag_exclusion %>%
+  filter(other_exclusion_codes == 0) 
+
+hesin_other_exclusion_codes_not_case$no_other_exclusion_code <- 1
+
+hesin_other_exclusion_codes_not_case <- hesin_other_exclusion_codes_not_case %>%
+  select(eid, 
+         no_other_exclusion_code)
+
+# check no. of rows
+nrow(hesin_other_exclusion_codes_not_case)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_other_exclusion_codes_not_case$eid))
+
+hesin_other_exclusion_codes_not_case <- hesin_other_exclusion_codes_not_case %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Merge the two datasets
+```{r HES data exclusion criteria further exclusion criteria merge dataset}
+hesin_other_codes_ID <- list(
+  hesin_other_exclusion_codes_case,
+  hesin_other_exclusion_codes_not_case
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+hesin_other_codes_ID %>%
+  nrow()
+
+length(unique(hesin_other_codes_ID$eid))
+
+hesin_other_codes_ID %>%
+  count(other_exclusion_codes)
+
+hesin_other_codes_ID %>%
+  count(no_other_exclusion_code)
+```
+
+### Merge all hesin exclusion data with 
+```{r Merge exclusion datasets}
+hesin_exclusion_dat <- list(
+  hesin_malignant_neo_ICD_10_ID, # Malignant neoplasms ICD10
+  hesin_other_codes_ID, # Other ICD9 or ICD10 codes
+  hesin_neo_ID, # Neoplasms (ICD9)
+  hesin_malignant_neo_ICD_9_ID, # Malignant neoplasms ICD9
+  hesin_merged_ID # Dataset containing people who meet inclusion criteria via HES data
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+hesin_exclusion_dat %>%
+  colnames()
+
+hesin_exclusion_dat %>%
+  nrow()
+
+length(unique(hesin_exclusion_dat$eid))
+```
+
+Identify people who meet at least one exclusion criteria
+```{r identify people who meet at least one exclusion criteria}
+hesin_exclusion_dat <- hesin_exclusion_dat %>%
+  mutate(HES_exclusion_criteria =
+           case_when(
+           ICD10_malignant_neo == 1 |
+           other_exclusion_codes == 1 |
+           malignant_neoplasms_ICD9 == 1 |
+           neoplasms_ICD9 == 1 ~ 1,
+         
+          TRUE ~ 0
+           )
+  )
+
+hesin_exclusion_dat %>%
+  count(HES_exclusion_criteria)
+
+# Identify people with at least one HES data entry
+hesin_exclusion_dat <- hesin_exclusion_dat %>%
+  mutate(HES_data_entry =
+           case_when(
+           ICD10_NO_malignant_neo == 1 |
+           no_other_exclusion_code == 1 |
+           no_malignant_neoplasms_ICD9 == 1 |
+           no_neoplasms_ICD9 == 1 ~ 1,
+         
+          TRUE ~ 0
+           )
+  )
+
+hesin_exclusion_dat %>%
+  count(HES_data_entry) # Most people have at least one HES data entry (only 68 people do not have any HES data)
+```
+
+Remove dataframes not needed to save memory (only really need "hesin_exclusion_dat")
+```{r HES remove dataframes to save memory}
+rm(HES_data_cases)
+rm(exclusion)
+rm(hesin_diag)
+rm(hesin_other_exclusion_codes_case)
+rm(hesin_other_exclusion_codes_not_case)
+rm(hesin_neo_ICD9_case)
+rm(hesin_neo_ICD9_not_case)
+rm(hesin_malignant_neo_ICD9_case)
+rm(hesin_malignant_neo_ICD9_not_case)
+rm(hesin_diag_exclusion_ICD10_ID)
+rm(hesin_diag_NOT_exclusion_ICD10_ID)
+rm(hesin_malignant_neo_ICD_10_ID)
+rm(hesin_other_codes_ID)
+rm(hesin_neo_ID)
+rm(hesin_malignant_neo_ICD_9_ID)
+gc()
+```
+
+# Death data 
+This category contains coded data on the cause of death (International Classification of Diseases [ICD10]), obtained through linkage to national death registries.
+```{r DEATH read in data }
+death_cause_diskframe <- bio_record(project_dir, record = "death_cause")
+
+death_cause <- death_cause_diskframe %>%
+    select(eid,
+           cause_icd10
+           ) %>%
+    collect()
+
+nrow(death_cause)
+```
+
+Checking numbers in death data
+
+Death due to atypical anorexia nervosa = 0
+Death due to bulimia nervosa = 0 
+Death due to atypical bulimia nervosa = 0
+Death due to Overeating associated with other psychological disturbances = 0
+```{r DEATH checking numbers in data}
+# Death due to anorexia nervosa
+death_data <- death_cause %>%
+  mutate(death_due_to_AN =
+           case_when(cause_icd10 == "F500" ~ 1
+            ))
+
+death_data %>%
+  count(death_due_to_AN)  # 3
+```
+
+Select columns
+```{r DEATH select columns}
+death_data_clean <- death_data %>%
+  select(eid,
+        death_due_to_AN)
+```
+
+Filter out non-cases
+```{r DEATH filter out non-cases}
+death_data_cases <- death_data_clean %>%
+  filter(death_due_to_AN == 1)
+
+# Check
+colnames(death_data_cases)
+nrow(death_data_cases)
+```
+
+Remove dataframes not needed
+```{r DEATH remove dataframes to save memory}
+rm(death_data_clean)
+rm(death_data)
+rm(death_cause)
+gc()
+```
+
+Save data generated up until this point
+```{r save dataset}
+dat_interim <- list(
+  death_data_cases,
+  hesin_exclusion_dat, # incl. info on exclusion cases
+  MHQ_dat_cases
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+nrow(dat_interim)
+colnames(dat_interim)
+length(unique(dat_interim$eid))
+
+saveRDS(object = dat_interim, file = paste0(UKB_final_files_path, "interim_death_MHQ_HES_UKB_PGCED3_case_data.rds"))
+```
+
+Remove dataframes not needed (only need dat_interim)
+```{r interim remove dataframes to save memory}
+rm(death_data_cases)
+rm(hesin_exclusion_dat)
+rm(MHQ_dat_cases)
+gc()
+```
+
+# GP data
+NB: Again, each row is a data entry rather than a participant.
+```{r GP read in data}
+gp_clinical_diskframe <- bio_record(project_dir, record = "gp_clinical")
+
+gp_clinical <- gp_clinical_diskframe %>%
+    select(eid,
+           read_2,
+           read_3,
+           value1,
+           value2,
+           value3,
+           event_dt # data of clinical event
+           
+           ) %>%
+    collect()
+
+head(gp_clinical)
+```
+
+## Anorexia nervosa
+### GP read 2 code: Anorexia nervosa
+```{r GP read code 2 anorexia nervosa}
+# Eu500 = '[X]Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_Xanorexia_nervosa =
+           case_when(read_2 == "Eu500" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_Xanorexia_nervosa)  # 13
+
+
+# 1467. = 'H/OAnorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_HO_anorexia_nervosa =
+           case_when(read_2 == "1467." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_HO_anorexia_nervosa)  # 22
+
+
+# E271. = 'Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_anorexia_nervosa =
+           case_when(read_2 == "E271." ~ 1
+           )
+  )
+             
+gp_clinical %>%
+  count(read2_anorexia_nervosa)  # 91
+```
+
+Create dataset
+```{r GP read code 2 anorexia nervosa create dataset}
+gp_anorexia_nervosa_read2 <- gp_clinical %>%
+  filter(read2_HO_anorexia_nervosa == 1 |
+           read2_Xanorexia_nervosa == 1 |
+           read2_anorexia_nervosa == 1) 
+
+gp_anorexia_nervosa_read2$GP_anorexia_nervosa_read2 <- 1
+
+gp_anorexia_nervosa_read2 <- gp_anorexia_nervosa_read2 %>%
+  select(eid, 
+         GP_anorexia_nervosa_read2)
+
+# check no. of rows
+nrow(gp_anorexia_nervosa_read2)
+# check no. of unique IDs
+length(unique(gp_anorexia_nervosa_read2$eid))
+
+# Keep distinct IDs
+gp_anorexia_nervosa_read2 <- gp_anorexia_nervosa_read2 %>% 
+  distinct(eid, .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_nervosa_read2 %>%
+  nrow()
+
+length(unique(gp_anorexia_nervosa_read2$eid))
+
+# Check
+gp_anorexia_nervosa_read2 %>%
+  count(GP_anorexia_nervosa_read2) # 92
+```
+
+### GP read 3 code: Anorexia nervosa 
+```{r GP read code 3 anorexia nervosa}
+# E271. = 'Anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_nervosa =
+           case_when(read_3 == "E271." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_anorexia_nervosa)  # 551
+
+# 1467. = 'H/O: anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_HO_anorexia_nervosa =
+           case_when(read_3 == "1467." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_HO_anorexia_nervosa)  # 38
+
+
+# .1467 = 'H/O: anorexia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read3_HO_anorexia_nervosa_2 =
+           case_when(read_3 == ".1467" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_HO_anorexia_nervosa_2)  # 0
+
+
+# .E49. = Anorexia nervosa and/or AN - Anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_nervosa_AN_anorexia_nervosa =
+           case_when(read_3 == ".E49." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_anorexia_nervosa_AN_anorexia_nervosa) # 0
+
+# Eu500 = Anorexia nervosa and/or AN - Anorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa =
+           case_when(read_3 == "Eu500" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa) # 0
+```
+
+Create dataset
+```{r GP read code 3 anorexia nervosa create dataset}
+gp_anorexia_nervosa_read3 <- gp_clinical %>%
+  filter(read3_anorexia_nervosa == 1  |
+         read3_HO_anorexia_nervosa == 1 |
+           read3_HO_anorexia_nervosa_2 == 1 |
+           read3_anorexia_nervosa_AN_anorexia_nervosa == 1 |
+           read3_Eu500_anorexia_nervosa_AN_anorexia_nervosa == 1
+           
+           ) 
+
+gp_anorexia_nervosa_read3$GP_anorexia_nervosa_read3 <- 1
+
+gp_anorexia_nervosa_read3 <- gp_anorexia_nervosa_read3 %>%
+  select(eid, 
+         GP_anorexia_nervosa_read3)
+
+# check no. of rows
+nrow(gp_anorexia_nervosa_read3)
+# check no. of unique IDs 
+length(unique(gp_anorexia_nervosa_read3$eid))
+
+gp_anorexia_nervosa_read3 <- gp_anorexia_nervosa_read3 %>% 
+  distinct(eid, .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_nervosa_read3 %>%
+  nrow()
+
+length(unique(gp_anorexia_nervosa_read3$eid))
+
+# Check
+gp_anorexia_nervosa_read3 %>%
+  count(GP_anorexia_nervosa_read3) # 247
+```
+
+## Anorexia 
+### GP read 2 code: Anorexia (these will need exclusion criteria)
+```{r GP read code 2 anorexia need exclusion criteria}
+# R030. = [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read2_DAnorexia =
+           case_when(read_2 == "R030." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_DAnorexia)  # 54
+
+# R030z = [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read2_AnorexiaNOS =
+           case_when(read_2 == "R030z" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_AnorexiaNOS)  # 0
+```
+
+Create dataset
+```{r GP read code 2 anorexia need create dataset}
+gp_anorexia_read2_need_excl_criteria <- gp_clinical %>%
+  filter(read2_AnorexiaNOS == 1 |
+           read2_DAnorexia == 1 
+         ) 
+
+gp_anorexia_read2_need_excl_criteria$GP_anorexia_read2_need_excl_criteria <- 1
+
+gp_anorexia_read2_need_excl_criteria <- gp_anorexia_read2_need_excl_criteria %>%
+  select(eid, 
+         GP_anorexia_read2_need_excl_criteria)
+
+# check no. of rows
+nrow(gp_anorexia_read2_need_excl_criteria)
+# check no. of unique IDs 
+length(unique(gp_anorexia_read2_need_excl_criteria$eid))
+
+gp_anorexia_read2_need_excl_criteria <- gp_anorexia_read2_need_excl_criteria %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_read2_need_excl_criteria %>%
+  nrow()
+
+length(unique(gp_anorexia_read2_need_excl_criteria$eid))
+
+# Check
+gp_anorexia_read2_need_excl_criteria %>%
+  count(GP_anorexia_read2_need_excl_criteria) # 47
+```
+
+### GP read 3 code: Anorexia (these will need exclusion criteria)
+```{r GP read code 3 anorexia need exclusion criteria}
+# R030. = [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia =
+           case_when(read_3 == "R030." ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia)  # 98
+
+# .R30. [D]Anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia2 =
+           case_when(read_3 == ".R30." ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia2)  # 0
+
+# R030z = Anorexia NOS
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexiaNOS =
+           case_when(read_3 == "R030z" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_anorexiaNOS)  # 37
+
+#.R30Z [D]Anorexia NOS 
+gp_clinical <- gp_clinical %>%
+  mutate(read3_Danorexia_NOS =
+           case_when(read_3 == ".R30Z" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_Danorexia_NOS)  # 0
+
+# X76cG = Anorexia symptom
+gp_clinical <- gp_clinical %>%
+  mutate(read3_anorexia_symptom =
+           case_when(read_3 == "X76cG" ~ 1
+           )
+  )
+
+
+gp_clinical %>%
+  count(read3_anorexia_symptom)  # 56
+
+# XE24f = Appetite loss - anorexia
+gp_clinical <- gp_clinical %>%
+  mutate(read3_appetite_loss_anorexia =
+           case_when(read_3 == "XE24f" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_appetite_loss_anorexia)  # 240
+```
+
+Create dataset
+```{r GP read code 3 anorexia need create dataset}
+gp_anorexia_read3_need_excl_criteria <- gp_clinical %>%
+  filter(read3_Danorexia == 1 |
+           read3_Danorexia2 == 1 |
+           read3_anorexiaNOS == 1 |
+           read3_Danorexia_NOS == 1 |
+           read3_anorexia_symptom == 1 |
+           read3_appetite_loss_anorexia == 1
+         ) 
+
+gp_anorexia_read3_need_excl_criteria$GP_anorexia_read3_need_excl_criteria <- 1
+
+gp_anorexia_read3_need_excl_criteria <- gp_anorexia_read3_need_excl_criteria %>%
+  select(eid, 
+         GP_anorexia_read3_need_excl_criteria)
+
+# check no. of rows
+nrow(gp_anorexia_read3_need_excl_criteria)
+# check no. of unique IDs 
+length(unique(gp_anorexia_read3_need_excl_criteria$eid))
+
+gp_anorexia_read3_need_excl_criteria <- gp_anorexia_read3_need_excl_criteria %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_read3_need_excl_criteria %>%
+  nrow()
+
+length(unique(gp_anorexia_read3_need_excl_criteria$eid))
+
+# Check
+gp_anorexia_read3_need_excl_criteria %>%
+  count(GP_anorexia_read3_need_excl_criteria) # 333
+```
+
+### GP read 2 code: Anorexia (these will need exclusion criteria AND cross-validation)
+#### Checking codes that are linked to multiple phenotypes
+For the below codes, we need more information to make a decision as to whether to include them as 'anorexia nervosa' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be. Specifically, some of these codes contain phenotypes that do not even mention anorexia, e.g., 'loss of appetite'
+```{r GP read code 2 anorexia need further information}
+# 1612 = Appetite loss - anorexia OR Anorexia symptom 
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value3)
+```
+Summary 18/02/22: No useful information. Will need to cross-validate with attendance/referral to an eating disorder clinic.
+
+These cases need additional cross-validation as they are more likely to be anorexia in relation to cancer, for example, because of the mention of 'loss of appetite' which is similar to the ICD10 code R360 which is anorexia (not anorexia nervosa)
+```{r GP read code 2 anorexia need exclusion criteria and additional cross-validation}
+# 1612. = Appetite loss - anorexia OR Anorexia symptom OR Loss of appetite - symptom
+ gp_clinical <- gp_clinical %>%
+   mutate(read2_anorexia_appetite_loss_OR_anorexia_symptom =
+            case_when(read_2 == "1612." ~ 1
+            )
+   )
+ 
+ gp_clinical %>%
+   count(read2_anorexia_appetite_loss_OR_anorexia_symptom)  # 203
+```
+
+Create dataset
+```{r GP read code 2 anorexia need excl criteria and cross-validation create dataset}
+gp_anorexia_read2_need_excl_criteria_cross_val <- gp_clinical %>%
+  filter(read2_anorexia_appetite_loss_OR_anorexia_symptom == 1 
+         ) 
+
+gp_anorexia_read2_need_excl_criteria_cross_val$GP_anorexia_read2_need_excl_criteria_cross_val <- 1
+
+gp_anorexia_read2_need_excl_criteria_cross_val <- gp_anorexia_read2_need_excl_criteria_cross_val %>%
+  select(eid, 
+         GP_anorexia_read2_need_excl_criteria_cross_val)
+
+# check no. of rows
+nrow(gp_anorexia_read2_need_excl_criteria_cross_val)
+# check no. of unique IDs 
+length(unique(gp_anorexia_read2_need_excl_criteria_cross_val$eid))
+
+gp_anorexia_read2_need_excl_criteria_cross_val <- gp_anorexia_read2_need_excl_criteria_cross_val %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_read2_need_excl_criteria_cross_val %>%
+  nrow()
+
+length(unique(gp_anorexia_read2_need_excl_criteria_cross_val$eid))
+
+# Check
+gp_anorexia_read2_need_excl_criteria_cross_val %>%
+  count(GP_anorexia_read2_need_excl_criteria_cross_val) # 152
+```
+
+### GP read 3 code: Anorexia (these will need exclusion criteria AND cross-validation with eating disorder clinic)
+#### First, checking these codes that are linked to multiple phenotypes
+For the below codes, we need more information to make a decision as to whether to include them as 'anorexia nervosa' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be.
+```{r GP read code 3 anorexia need further information}
+# XM07X = Lack of appetite OR Anorexia OR Off food OR No appetite OR Anorexic 
+gp_clinical %>%
+    filter(read_2 == "XM07X") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_2 == "XM07X") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_2 == "XM07X") %>%
+    count(value3)
+
+# 1612. = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_2 == "1612.") %>%
+    count(value3)
+
+# .1612 = Anorexia symptom OR Appetite loss: [anorexia] or [anorexia symptom] OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
+gp_clinical %>%
+    filter(read_2 == ".1612") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_2 == ".1612") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_2 == ".1612") %>%
+    count(value3)
+```
+Summary 18/02/22: No useful information. Will need to cross-validate with attendance/referral to an eating disorder clinic.
+
+```{r GP read code 3 anorexia need exclusion criteria and cross-validation}
+# XM07X = Lack of appetite OR Anorexia OR Off food OR No appetite OR Anorexic 
+ gp_clinical <- gp_clinical %>%
+   mutate(read3_anorexia_off_food =
+            case_when(read_3 == "XM07X" ~ 1
+            )
+   )
+ 
+ gp_clinical %>%
+   count(read3_anorexia_off_food)  # 151
+ 
+# 1612. = Appetite loss: [anorexia] or [anorexia symptom] OR Anorexia symptom OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
+ gp_clinical <- gp_clinical %>%
+   mutate(read3_anorexia_appetite_loss_OR_anorexia_symptom =
+            case_when(read_3 == "1612." ~ 1
+            )
+   )
+ 
+ 
+ gp_clinical %>%
+   count(read3_anorexia_appetite_loss_OR_anorexia_symptom)  # 8
+ 
+# .1612 = Anorexia symptom OR Appetite loss: [anorexia] or [anorexia symptom] OR Appetite loss - anorexia OR Loss of appetite OR Loss of appetite - symptom
+ gp_clinical <- gp_clinical %>%
+   mutate(read3_anorexia_appetite_loss_OR_anorexia_symptom2 =
+            case_when(read_3 == ".1612" ~ 1
+            )
+   )
+ 
+ 
+ gp_clinical %>%
+   count(read3_anorexia_appetite_loss_OR_anorexia_symptom2)  # 0
+```
+
+Create dataset
+```{r GP read code 3 anorexia need excl criteria and cross-validation create dataset}
+gp_anorexia_read3_need_excl_criteria_cross_val <- gp_clinical %>%
+  filter(read3_anorexia_off_food == 1 |
+         read3_anorexia_appetite_loss_OR_anorexia_symptom == 1 |
+         read3_anorexia_appetite_loss_OR_anorexia_symptom2 == 1 
+         ) 
+
+gp_anorexia_read3_need_excl_criteria_cross_val$GP_anorexia_read3_need_excl_criteria_cross_val <- 1
+
+gp_anorexia_read3_need_excl_criteria_cross_val <- gp_anorexia_read3_need_excl_criteria_cross_val %>%
+  select(eid, 
+         GP_anorexia_read3_need_excl_criteria_cross_val)
+
+# check no. of rows
+nrow(gp_anorexia_read3_need_excl_criteria_cross_val)
+
+# check no. of unique IDs 
+length(unique(gp_anorexia_read3_need_excl_criteria_cross_val$eid))
+
+gp_anorexia_read3_need_excl_criteria_cross_val <- gp_anorexia_read3_need_excl_criteria_cross_val %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_anorexia_read3_need_excl_criteria_cross_val %>%
+  nrow()
+
+length(unique(gp_anorexia_read3_need_excl_criteria_cross_val$eid))
+
+# Check
+gp_anorexia_read3_need_excl_criteria_cross_val %>%
+  count(GP_anorexia_read3_need_excl_criteria_cross_val) # 151
+```
+
+## Eating disorder clinic
+### GP read 2 and 3 code: Seen in/referral to eating disorder clinics - used for cross-validation of cases we are unsure about
+i.e., People with a GP read 2 code of "1612." (Appetite loss - anorexia; Anorexia symptom; Loss of appetite - symptom), or read code 3 of "1612." (Appetite loss: [anorexia] or [anorexia symptom]; Anorexia symptom; Appetite loss - anorexia; Loss of appetite; Loss of appetite - symptom) or "XM07X" (Lack of appetite; Anorexia; Off food; No appetite; Anorexic) or ".1612" (Anorexia symptom; Appetite loss: [anorexia] or [anorexia symptom]; Appetite loss - anorexia; Loss of appetite; Loss of appetite - symptom)
+```{r GP read code 2 and 3 seen in clinic cross-validation}
+# 8HTN. = "Referral to eating disorders clinic"
+gp_clinical <- gp_clinical %>%
+  mutate(read2_referral_to_eating_disorder_clinic =
+           case_when(read_2 == "8HTN." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_referral_to_eating_disorder_clinic)  # 12
+
+# 9Nk9. Seen in eating disorder clinic
+gp_clinical <- gp_clinical %>%
+  mutate(read2_seen_in_eating_disorder_clinic =
+           case_when(read_2 == "9Nk9." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_seen_in_eating_disorder_clinic)  # 4
+
+
+# Xa2hW	Dietary advice for eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read3_dietary_advice_for_eating_disorder =
+           case_when(read_3 == "Xa2hW" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_dietary_advice_for_eating_disorder)  # 0
+
+# XaEC2	Eating disorder counselling
+gp_clinical <- gp_clinical %>%
+  mutate(read3_eating_disorder_counselling =
+           case_when(read_3 == "XaEC2" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_eating_disorder_counselling)  # 7
+
+# XaPBE	Seen in eating disorder clinic
+gp_clinical <- gp_clinical %>%
+  mutate(read3_seen_in_eating_disorder_clinic =
+           case_when(read_3 == "XaPBE" ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read3_seen_in_eating_disorder_clinic)  # 12
+```
+
+Create dataset
+```{r GP read code 2 and 3 eating disorder clinic}
+gp_eating_disorder_clinic <- gp_clinical %>%
+  filter(read3_seen_in_eating_disorder_clinic == 1 |
+         read3_eating_disorder_counselling == 1 |
+         read3_dietary_advice_for_eating_disorder == 1 |  
+         read2_seen_in_eating_disorder_clinic == 1 |
+         read2_referral_to_eating_disorder_clinic == 1
+         ) 
+
+gp_eating_disorder_clinic$GP_eating_disorder_clinic <- 1
+
+gp_eating_disorder_clinic <- gp_eating_disorder_clinic %>%
+  select(eid, 
+         GP_eating_disorder_clinic)
+
+# check no. of rows
+nrow(gp_eating_disorder_clinic)
+# check no. of unique IDs 
+length(unique(gp_eating_disorder_clinic$eid))
+
+gp_eating_disorder_clinic <- gp_eating_disorder_clinic %>% 
+  distinct(eid,
+           .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_eating_disorder_clinic %>%
+  nrow()
+
+length(unique(gp_eating_disorder_clinic$eid))
+
+# Check
+gp_eating_disorder_clinic %>%
+  count(GP_eating_disorder_clinic) # 16
+```
+
+### Merge all the GP AN data
+```{r GP merge all AN data}
+# Merge the AN GP datasets
+GP_dat_AN <- list(
+ gp_anorexia_nervosa_read2,
+ gp_anorexia_nervosa_read3,
+ gp_anorexia_read2_need_excl_criteria,
+ gp_anorexia_read3_need_excl_criteria,
+ gp_anorexia_read2_need_excl_criteria_cross_val,
+ gp_anorexia_read3_need_excl_criteria_cross_val,
+ gp_eating_disorder_clinic
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+GP_dat_AN %>%
+  colnames()
+
+GP_dat_AN %>%
+  nrow()n # 1008
+```
+
+Remove dataframes not needed
+```{r interim remove dataframes to save memory}
+rm(gp_anorexia_nervosa_read2)                  
+rm(gp_anorexia_nervosa_read3)
+rm(gp_anorexia_read2_need_excl_criteria)
+rm(gp_anorexia_read3_need_excl_criteria)
+rm(gp_anorexia_read2_need_excl_criteria_cross_val)
+rm(gp_anorexia_read3_need_excl_criteria_cross_val)
+rm(gp_eating_disorder_clinic)
+gc()
+```
+
+```{r save GP AN data} 
+saveRDS(object = GP_dat_AN, file = paste0(UKB_final_files_path, "UKB_PGCED3_GP_AN_data.rds"))
+```
+
+## Binge eating
+### First, check codes that are linked to multiple phenotypes (only applies to read 3 codes)
+For the below codes, we need more information to make a decision as to whether to include them as 'binge eating' cases. This is because a single code is linked to multiple phenotypes, some of which would be considered cases but others that would not be (for binge eating, this applies to read 3 codes only).
+```{r GP read code 3 binge eating need more information}
+# X767Z = Binge eating; Bingeing; Bouts of overeating; Episodes of overeating; Binges
+gp_clinical %>%
+    filter(read_3 == "X767Z") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_3 == "X767Z") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_3 == "X767Z") %>%
+    count(value3)
+
+
+# .1FF. = Binge eating; Bingeing; Bouts of overeating; Episodes of overeating; Binges
+gp_clinical %>%
+    filter(read_3 == ".1FF.") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_3 == ".1FF.") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_3 == ".1FF.") %>%
+    count(value3)
+
+# 1FF.. = Binge eating; Bingeing; Bouts of overeating; Episodes of overeating; Binges
+gp_clinical %>%
+    filter(read_3 == "1FF..") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_3 == "1FF..") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_3 == "1FF..") %>%
+    count(value3)
+```
+Summary 18/02/22: No useful information. Can not count these cases.
+
+
+### GP read 2 code: Binge eating
+```{r GP read code 2 binge eating}
+# 1FF.. = 'Binge eating'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_binge_eating =
+           case_when(read_2 == "1FF.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_binge_eating)  # 10
+
+# 1JZ.. = 'Suspected binge eating disorder'
+gp_clinical <- gp_clinical %>%
+  mutate(read2_suspected_binge_eating_disorder =
+           case_when(read_2 == "1JZ.." ~ 1
+           )
+  )
+
+gp_clinical %>%
+  count(read2_suspected_binge_eating_disorder)  # 0
+
+# Eu502 = '[X]Bulimia nervosa' OR '[X]Bulimia NOS'X] OR [X]Hyperorexia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa =
+           case_when(read_2 == "Eu502" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa) # 58
+
+# Eu503 = '[X]Atypical bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_atypical_bulimia_nervosa =
+           case_when(read_2 == "Eu503" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_atypical_bulimia_nervosa) # 2 
+
+
+# E2751; Bulimia (non-organic overeating) OR Compulsive eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_bulimia_or_compulsive_eating_disorder=
+           case_when(read_2 == "E2751" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_bulimia_or_compulsive_eating_disorder) # 41
+```
+
+### GP read code 3 binge eating
+```{r GP read code 3 binge eating}
+# Eu502 = [X] (Bulimia nervosa) or (bulimia NOS) or (hyperorexia nervosa) OR [X] (Bulimia nervosa) or (bulimia NOS) or (hyperorexia nervosa)
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa =
+           case_when(read_3 == "Eu502" ~ 1)
+  )
+
+gp_clinical %>% 
+  count(read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa) # 28
+
+# X00T1 = 'Atypical bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_atypical_BN =
+           case_when(read_3 == "X00T1" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_atypical_BN) # 4
+
+
+# Eu503 = Atypical bulimia nervosa
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_atypical_BN2 =
+           case_when(read_3 == "Eu503" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_atypical_BN2) # 0
+
+# Xaav6 = Suspected binge eating disorder
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_suspected_BED =
+           case_when(read_3 == "Xaav6" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_suspected_BED) # 1
+
+# IJZ.. = 'Suspected binge-eating disorder'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_suspected_BED2 =
+           case_when(read_3 == "IJZ.." ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_suspected_BED2) # 0
+
+
+# XaBZ9: Attempts to counteract effects of bingeing
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_counteract_bingeing =
+           case_when(read_3 == "XaBZ9" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_counteract_bingeing) # 0 
+
+
+# XE1Yk = 'Bulimia nervosa' OR 'BN - Bulimia nervosa'
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_BN =
+           case_when(read_3 == "XE1Yk" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_BN) # 215
+
+# E2751 = 'Compulsive eating disorder (& [bulimia including non-organic overeating])' OR 'Compulsive eating disorder' OR Bulimia (non-organic overeating)' 
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_compulsive_ED_OR_BN =
+           case_when(read_3 == "E2751" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_compulsive_ED_OR_BN) # 30
+```
+
+Create dataset of GP cases of binge eating
+Broad binge eating
+```{r GP create dataset of broad BE cases}
+gp_BE_broad <- gp_clinical %>%
+  filter(read2_binge_eating == 1 |
+         read_2_atypical_bulimia_nervosa == 1 |
+         read_3_atypical_BN == 1 |
+         read_3_atypical_BN2 == 1 |
+         read_3_counteract_bingeing == 1 |
+         read2_suspected_binge_eating_disorder == 1 |
+         read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa == 1 |
+         read_2_bulimia_or_compulsive_eating_disorder == 1 |
+         read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa == 1 |
+         read_3_suspected_BED == 1 |
+         read_3_suspected_BED2 == 1 |
+         read_3_compulsive_ED_OR_BN == 1 |
+         read_3_BN == 1 
+           ) 
+
+gp_BE_broad$GP_broad_BE <- 1
+
+gp_BE_broad <- gp_BE_broad %>%
+  select(eid, 
+         GP_broad_BE)
+
+# check no. of rows
+nrow(gp_BE_broad)
+# check no. of unique IDs
+length(unique(gp_BE_broad$eid))
+
+gp_BE_broad <- gp_BE_broad %>% 
+  distinct(eid, .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_BE_broad %>%
+  nrow()
+
+length(unique(gp_BE_broad$eid))
+
+# Check
+gp_BE_broad %>%
+  count(GP_broad_BE) # 180
+```
+
+Narrow binge eating
+```{r GP create dataset of narrow BE cases}
+gp_BE_narrow <- gp_clinical %>%
+  filter( read2_suspected_binge_eating_disorder == 1 |
+         read_2_Xbulimia_nervosa_OR_bulimiaNOS_OR_hyperorexia_nervosa == 1 |
+         read_3_XBN_OR_BN_NOS_OR_hyperorexia_nervosa == 1 |
+         read_3_suspected_BED == 1 |
+         read_3_suspected_BED2 == 1 |
+         read_3_BN == 1 
+           ) 
+
+gp_BE_narrow$GP_narrow_BE <- 1
+
+gp_BE_narrow <- gp_BE_narrow %>%
+  select(eid, 
+         GP_narrow_BE)
+
+# check no. of rows
+nrow(gp_BE_narrow)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(gp_BE_narrow$eid))
+
+gp_BE_narrow <- gp_BE_narrow %>% 
+  distinct(eid, .keep_all = TRUE) 
+
+# Check that same amount of unique IDs as there are rows
+gp_BE_narrow %>%
+  nrow()
+
+length(unique(gp_BE_narrow$eid))
+
+# Check
+gp_BE_narrow %>%
+  count(GP_narrow_BE) # 169
+```
+
+### Merge all the GP data
+```{r GP merge all data}
+# Merge the datasets
+GP_dat <- list(
+ GP_dat_AN,
+ gp_BE_broad,
+ gp_BE_narrow
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+GP_dat %>%
+  colnames()
+```
+
+Remove dataframes no longer needed (only need GP_dat)
+```{r GP remove dataframes to save memory}
+rm(GP_dat_AN)
+rm(gp_BE_broad)
+rm(gp_BE_narrow)
+gc()
+```
+
+# Merge ALL data: MHQ, Death, HES, and GP
+```{r merge ALL data}
+dat <- list(
+  GP_dat,
+  dat_interim
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+nrow(dat)
+colnames(dat)
+length(unique(dat$eid)) # 435775
+```
+
+Remove dataframes not needed (only need 'dat' now)
+```{r remove dataframes not needed}
+rm(dat_interim)
+rm(GP_dat)
+gc()
+```
+
+Save data so far
+```{r save data}
+saveRDS(object = dat, paste0(UKB_final_files_path, "interim2_death_MHQ_HES_GP_UKB_PGCED3_case_data.rds"))
+```
+
+# "Anorexia" and exclusion criteria
+CASES: "Anorexia" GP code and does NOT have HES exclusion code (incl. people without any HES data as cases), i.e., limited exclusions to people with known data on a counter indicated condition.
+Those excluded: Can not be controls either (as discussed PGC analyst call 28/01/22)
+```{r anorexia exclusions prevalence of exlusionary conditions}
+# Consider the prevalence of exclusionary conditions and see how likely it is that someone without HES data has an exclusion we don't know about
+dat %>%
+  count(HES_exclusion_criteria) # 69823 meet exclusion criteria, 365710 do not (16%)
+
+dat %>%
+  count(HES_data_entry) # 68 people are missing HES data
+
+# Therefore, most people have at least one HES data entry and 16% of people with HES data meet exclusion criteria. 
+```
+
+Create 'anorexia' variable (i.e., GP code of "anorexia") from both read codes that needs exclusion criteria, and one that needs exclusion criteria AND cross-validation
+```{r anorexia exclusions create variable}
+# 'Anorexia' GP code needs excl criteria
+dat <- dat %>%
+  mutate(anorexia_excl_criteria =
+           case_when(
+           GP_anorexia_read2_need_excl_criteria == 1 |
+           GP_anorexia_read3_need_excl_criteria == 1 ~ 1
+           )
+  )
+
+# Check
+dat %>%
+  count(anorexia_excl_criteria) # 380 people have 'anorexia' GP code that needs excl criteria
+
+# 'Anorexia' GP code needs excl criteria and cross-validation
+dat <- dat %>%
+  mutate(anorexia_excl_criteria_cross_val =
+           case_when(
+           GP_anorexia_read2_need_excl_criteria_cross_val == 1 |
+           GP_anorexia_read3_need_excl_criteria_cross_val == 1 ~ 1
+           )
+  )
+
+# Check
+dat %>%
+  count(anorexia_excl_criteria_cross_val) # 303 people have 'anorexia' GP code that needs excl criteria AND cross-validation
+
+# Check cross-over
+dat %>%
+  group_by(anorexia_excl_criteria) %>%
+  count(anorexia_excl_criteria_cross_val) # 5 people are in both
+```
+
+Do these people meet criteria for AN elsewhere? 
+```{r anorexia exclusions meeting criteria elsewhere}
+# Anorexia GP code AND does not meet criteria for anorexia nervosa elsewhere
+dat <- dat %>%
+  mutate(anorexia_GP_only_excl =
+           case_when(
+             anorexia_excl_criteria == 1 &
+             (
+               is.na(AN_MHQ) &
+               is.na(death_due_to_AN) &
+               is.na(GP_anorexia_nervosa_read3) &
+               is.na(GP_anorexia_nervosa_read2) &
+               is.na(ICD_AN) &
+               is.na(ICD10_AAN)
+               ) ~ 1
+           )
+  )
+
+dat %>%
+  count(anorexia_GP_only_excl) # 350/380 people have ONLY the anorexia GP code and do not meet criteria for AN elsewhere
+
+# Anorexia GP code AND does not meet criteria for anorexia nervosa elsewhere
+dat <- dat %>%
+  mutate(anorexia_GP_only_excl_cross_val =
+           case_when(
+             anorexia_excl_criteria_cross_val == 1 &
+             (
+               is.na(AN_MHQ) &
+               is.na(death_due_to_AN) &
+               is.na(GP_anorexia_nervosa_read3) &
+               is.na(GP_anorexia_nervosa_read2) &
+               is.na(ICD_AN) &
+               is.na(ICD10_AAN)
+               ) ~ 1
+           )
+  )
+
+dat %>%
+  count(anorexia_GP_only_excl_cross_val) # 299/303 people have ONLY the anorexia GP code and do not meet criteria for AN elsewhere
+```
+
+Do these 350 people meet exclusion criteria?
+```{r anorexia exclusions GP code only and meets exclusion criteria}
+# EXCLUDE: Anorexia GP only and meets exclusion criteria
+dat <- dat %>%
+  mutate(anorexia_excluded =
+           case_when(
+             (anorexia_GP_only_excl == 1 |
+                anorexia_GP_only_excl_cross_val == 1) &
+             HES_exclusion_criteria == 1 ~ 1
+           )
+  )
+
+dat %>%
+  count(anorexia_excluded) # 164 people to exclude (GP anorexia code only and meet exclusion criteria)
+
+# DO NOT EXCLUDE (for now): Anorexia GP only but does not meets exclusion criteria
+dat <- dat %>%
+  mutate(anorexia_not_excluded =
+           case_when(
+             (anorexia_GP_only_excl == 1 |
+                anorexia_GP_only_excl_cross_val == 1) &
+             (HES_exclusion_criteria != 1 |
+               is.na(HES_exclusion_criteria)) ~ 1
+           )
+  )
+
+dat %>%
+  count(anorexia_not_excluded) # 480 people to possibly keep as cases (260 have anorexia_GP_only_excl == 1)
+```
+
+Do these people have ANY HES data entry?
+```{r anorexia exclusions HES data availability}
+dat %>%
+  filter(anorexia_not_excluded == 1) %>%
+  count(HES_data_entry) # 448/480 have at least one HES data entry, 32 have no HES data (Joni:  I think it’s fine for someone who has a GP diag of anorexia to be a case, in the absence of HES data for exclusion - typically wouldn’t define someone as being “definitely not” something in the absence of data (e.g. I wouldn’t assume that everyone who doesn’t have the anorexia HES code is a control), but I think its ok to limit exclusions to people with known data on a counter indicated condition.))
+```
+
+## Cross-validation step
+```{r anorexia exclusions cross-validation}
+dat <- dat %>%
+  mutate(anorexia_not_excluded_passed_cross_val =
+           case_when(
+            (anorexia_not_excluded == 1 & # Not yet excluded
+             
+            (anorexia_GP_only_excl_cross_val == 1 & # Needs cross-validation &...
+            is.na(anorexia_GP_only_excl)) & #...does not have ONLY the anorexia GP code (excl criteria only) and do not meet criteria for AN elsewhere
+              
+             GP_eating_disorder_clinic == 1 ~ 1), # passes cross-validation
+            
+            anorexia_not_excluded == 1 &
+             anorexia_GP_only_excl == 1 ~ 1, # still need to carry forward the other cases with GP codes only needing exclusion critiera
+              
+           )
+  )
+
+# Check how many needing cross-validation pass cross-validation in the code above
+dat %>%
+  filter(anorexia_not_excluded == 1 & # Not yet excluded
+         anorexia_GP_only_excl_cross_val == 1 & # Needs cross-validation &...
+          is.na(anorexia_GP_only_excl) & #...does not have a GP code that only needs to pass exclusion criteria filter
+          GP_eating_disorder_clinic == 1 )
+
+# None passed cross-validation so have had to drop all of them
+
+dat %>%
+  count(anorexia_not_excluded_passed_cross_val) # Now, 260 people to possibly keep as cases (all from anorexia GP code needing excl criteria only)
+```
+
+## Additional exclusion criteria: Added after discussion with Gerome (Jan 2022)
+How many of these participants have type 1 diabetes? 
+```{r additional exclusion criteria type 1 diabetes}
+hesin_diag_diskframe <- bio_record(project_dir, record = "hesin_diag")
+
+hesin_diag <- hesin_diag_diskframe %>%
+    select(eid,
+           diag_icd9,
+           diag_icd10,
+           ) %>%
+    collect()
+
+nrow(hesin_diag)
+colnames(hesin_diag)
+```
+
+Diabetes check
+```{r diabetes type 1 ICD9}
+# Type 1 diabetes ICD9
+hesin_diag <- hesin_diag %>%
+  mutate(type1_diabetes_ICD9 =
+           case_when(diag_icd9 == "25001" |  # "Diabetes mellitus without mention of complication (juvenile type)"
+                     diag_icd9 == "25011"   # "Diabetes with ketoacidosis (juvenile type)"
+                       ~ 1
+            ))
+
+hesin_type1_diabetes_ICD9 <- hesin_diag %>%
+  filter(type1_diabetes_ICD9 == 1) 
+
+hesin_type1_diabetes_ICD9$type1_diabetes_ICD9 <- 1
+
+hesin_type1_diabetes_ICD9 <- hesin_type1_diabetes_ICD9 %>%
+  select(eid, 
+         type1_diabetes_ICD9)
+
+# check no. of rows
+nrow(hesin_type1_diabetes_ICD9)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_type1_diabetes_ICD9$eid))
+
+hesin_type1_diabetes_ICD9 <- hesin_type1_diabetes_ICD9 %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r possible diabetes type 1 ICD9}
+# Possible type 1 diabetes ICD9
+hesin_diag <- hesin_diag %>%
+  mutate(possible_type1_diabetes_ICD9 =
+           case_when(
+             diag_icd9 == "25009" | # "Diabetes mellitus without mention of compl. (adult/juvenile unspec.)"
+              diag_icd9 == "25019" | # "Diabetes with ketoacidosis (adult/juvenile unspec.)"
+              diag_icd9 == "25099" |  # "Diabetes with unspecified complications (unspecified onset)"
+               diag_icd9 == "2503" | # "Diabetes with renal manifestations"
+               diag_icd9 == "2504" | # "Diabetes with ophthalmic manifestations"
+               diag_icd9 == "2505"  # "Diabetes with neurological manifestations"
+               ~ 1
+               ))
+
+hesin_possible_type1_diabetes_ICD9 <- hesin_diag %>%
+  filter(possible_type1_diabetes_ICD9 == 1) 
+
+hesin_possible_type1_diabetes_ICD9$possible_type1_diabetes_ICD9 <- 1
+
+hesin_possible_type1_diabetes_ICD9 <- hesin_possible_type1_diabetes_ICD9 %>%
+  select(eid, 
+         possible_type1_diabetes_ICD9)
+
+# check no. of rows
+nrow(hesin_possible_type1_diabetes_ICD9)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+unique(hesin_possible_type1_diabetes_ICD9$eid)
+
+hesin_possible_type1_diabetes_ICD9 <- hesin_possible_type1_diabetes_ICD9 %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+```{r diabetes type 1 ICD10}
+# Type 1 diabetes ICD10
+hesin_diag <- hesin_diag %>%
+  mutate(type1_diabetes_ICD10 =
+          case_when( # Insulin-dependent diabetes mellitus...
+                     diag_icd10 == "E100" |  # With coma
+                     diag_icd10 == "E101" |   # With ketoacidosis
+                     diag_icd10 == "E102" |   # With renal complications
+                     diag_icd10 == "E103" |   # With ophthalmic complications
+                     diag_icd10 == "E104" |   # With neurological complications
+                      diag_icd10 == "E105" |   # With peripheral circulatory complications
+                      diag_icd10 == "E106" |   # With other specified complications
+                      diag_icd10 == "E107" |   # With multiple complications
+                      diag_icd10 == "E108" |   # With unspecified complications57
+                      diag_icd10 == "E109"   # Without complications
+                     ~ 1
+            ))
+
+hesin_type1_diabetes_ICD10 <- hesin_diag %>%
+  filter(type1_diabetes_ICD10 == 1) 
+
+hesin_type1_diabetes_ICD10$type1_diabetes_ICD10 <- 1
+
+hesin_type1_diabetes_ICD10 <- hesin_type1_diabetes_ICD10 %>%
+  select(eid, 
+         type1_diabetes_ICD10)
+
+# check no. of rows
+nrow(hesin_type1_diabetes_ICD10)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_type1_diabetes_ICD10$eid))
+
+hesin_type1_diabetes_ICD10 <- hesin_type1_diabetes_ICD10 %>% 
+  distinct(eid, .keep_all = TRUE) 
+
+nrow(hesin_type1_diabetes_ICD10)
+```
+
+```{r possible diabetes type 1 ICD10}
+# Possible type 1 diabetes ICD10
+hesin_diag <- hesin_diag %>%
+  mutate(possible_type1_diabetes_ICD10 =
+           case_when(
+             # Malnutrition-related diabetes mellitus...
+               diag_icd10 == "E121" | # With ketoacidosis
+               diag_icd10 == "E123" | # With ophthalmic complications
+               diag_icd10 == "E125" | # With peripheral circulatory complications
+               diag_icd10 == "E128"  | # With unspecified complications
+               diag_icd10 == "E129"  | # Without complications
+             
+              # Other specified diabetes mellitus
+                diag_icd10 == "E130" | # With ketoacidosis
+                diag_icd10 == "E131" | # With ophthalmic complications
+                diag_icd10 == "E132" | # With peripheral circulatory complications
+                diag_icd10 == "E133"  | # With unspecified complications
+                diag_icd10 == "E134"  | # Without complications
+                diag_icd10 == "E135"  | # With peripheral circulatory complications
+                diag_icd10 == "E136"  | # With other specified complications
+                diag_icd10 == "E137"  | # With multiple complications
+                diag_icd10 == "E138"  | # With unspecified complications 
+                diag_icd10 == "E139" | # Without complications
+                
+               # Unspecified diabetes mellitus 
+                diag_icd10 == "E140" | # With ketoacidosis
+                diag_icd10 == "E141" | # With ophthalmic complications
+                diag_icd10 == "E142" | # With peripheral circulatory complications
+                diag_icd10 == "E143"  | # With unspecified complications
+                diag_icd10 == "E144"  | # Without complications
+                diag_icd10 == "E145"  | # With peripheral circulatory complications
+                diag_icd10 == "E146"  | # With other specified complications
+                diag_icd10 == "E147"  | # With multiple complications
+                diag_icd10 == "E148"  | # With unspecified complications 
+                diag_icd10 == "E149"  # Without complications
+                ~ 1
+               ))
+
+
+hesin_possible_type1_diabetes_ICD10 <- hesin_diag %>%
+  filter(possible_type1_diabetes_ICD10 == 1) 
+
+hesin_possible_type1_diabetes_ICD10$possible_type1_diabetes_ICD10 <- 1
+
+hesin_possible_type1_diabetes_ICD10 <- hesin_possible_type1_diabetes_ICD10 %>%
+  select(eid, 
+         possible_type1_diabetes_ICD10)
+
+# check no. of rows
+nrow(hesin_possible_type1_diabetes_ICD10)
+# check no. of unique IDs - mismatch! need to get rid of dup IDs before merging
+length(unique(hesin_possible_type1_diabetes_ICD10$eid))
+
+hesin_possible_type1_diabetes_ICD10 <- hesin_possible_type1_diabetes_ICD10 %>% 
+  distinct(eid, .keep_all = TRUE) 
+```
+
+Merge all diabetes datasets by ID
+```{r diabetes dat merge all datasets}
+diabetes_dat <- list(
+  hesin_type1_diabetes_ICD9,
+  hesin_possible_type1_diabetes_ICD9,
+  hesin_type1_diabetes_ICD10,
+  hesin_possible_type1_diabetes_ICD10
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+nrow(diabetes_dat)
+colnames(diabetes_dat)
+```
+
+Drop unneeded datasets
+```{r remove dataframes to save memory}
+rm(hesin_type1_diabetes_ICD9)
+rm(hesin_possible_type1_diabetes_ICD9)
+rm(hesin_type1_diabetes_ICD10)
+rm(hesin_possible_type1_diabetes_ICD10)
+gc()
+```
+
+### Merge diabetes data with data
+```{r merge diabetes data with data}
+dat2 <- list(
+  diabetes_dat,
+  dat
+  ) %>% 
+  reduce(full_join, 
+         by = "eid"
+  )
+
+# Check
+nrow(dat2)
+colnames(dat2)
+```
+
+### Identify those of the 260 (all from anorexia GP code needing excl criteria only) with diabetes
+```{r identify remaining anorexia cases with diabetes}
+dat2 <- dat2 %>%
+  mutate(anorexia_not_excluded_diabetes =
+           case_when(
+             anorexia_not_excluded_passed_cross_val == 1 &
+             (type1_diabetes_ICD9 == 1 |
+                type1_diabetes_ICD10 == 1) ~ 1
+           )
+  )
+
+dat2 %>%
+  count(anorexia_not_excluded_diabetes) # 3 definitely have type 1 diabetes
+
+dat2 <- dat2 %>%
+  mutate(anorexia_not_excluded_possible_diabetes =
+           case_when(
+             anorexia_not_excluded_passed_cross_val == 1 &
+             (type1_diabetes_ICD9 == 1 |
+              type1_diabetes_ICD10 == 1 |
+              possible_type1_diabetes_ICD9 == 1 |
+              possible_type1_diabetes_ICD10 == 1) ~ 1
+           )
+  )
+
+dat2 %>%
+  count(anorexia_not_excluded_possible_diabetes) # an additional 3 possibly also have type 1 diabetes (3 of the people with definite type 1 diabetes also have possible diabetes - see code below)
+
+# Check for overlap
+dat2 %>%
+  filter(anorexia_not_excluded_possible_diabetes == 1 &
+          anorexia_not_excluded_diabetes == 1 ) %>%
+  nrow()
+
+## Need to exclude these people - will analyse data from these people in PRS
+```
+
+# PGC numbers
+## Anorexia nervosa cases
+```{r PGC numbers anorexia nervosa overall cases}
+# MHQ case
+dat2 %>%
+  count(AN_MHQ) # 891
+
+# GP case: Anorexia nervosa
+dat2 <- dat2 %>%
+  mutate(GP_anorexia_nervosa_case =
+           case_when(   
+                      # GP data
+                    GP_anorexia_nervosa_read3 == 1 |
+                    GP_anorexia_nervosa_read2 == 1 ~ 1,
+                      
+                   TRUE ~ 0 # Not AN case
+                     )
+         )
+
+# Check
+dat2 %>%
+  count(GP_anorexia_nervosa_case) # 339
+
+# GP case: Anorexia but does not meet excl criteria (incl. diabetes)
+dat2 <- dat2 %>%
+  mutate(GP_anorexia_case =
+           case_when(   
+                      # GP data
+                    (anorexia_not_excluded_passed_cross_val == 1 & # GP code of anorexia, does not meet AN criteria elsewhere, and does not meet original excl. criteria...
+                    (is.na(anorexia_not_excluded_diabetes) &
+                      is.na(anorexia_not_excluded_possible_diabetes))) ~ 1, # ..and does not meet criteria for diabetes
+                      
+                   TRUE ~ 0 # Not AN case
+                     )
+         )
+
+# Check
+dat2 %>%
+  count(GP_anorexia_case) # 254 people left over (NB: additionally excluded 6 people of the 260 due to diabetes and thus possible diabulimia)
+
+
+# HES case
+dat2 <- dat2 %>%
+  mutate(HES_AN_case =
+           case_when(   
+                       # HES data
+                      ICD_AN == 1 | # ICD-10 code of F500 (Anorexia nervosa) or ICD-9 code of 3071 (Anorexia nervosa) 
+                      ICD10_AAN == 1 ~ 1, # or ICD-10 code of F501 (atypical Anorexia nervosa)
+                      
+                   TRUE ~ 0 # Not AN case
+                     )
+         )
+
+# Check
+dat2 %>%
+  count(HES_AN_case) # 90
+
+# Overall AN cases
+dat2 <- dat2 %>%
+  mutate(AN_case =
+           case_when( # MHQ data
+                      AN_MHQ == 1 | 
+                        
+                      # GP data
+                    GP_anorexia_nervosa_case == 1 |
+                    GP_anorexia_case == 1 |
+                      
+                      # Death data
+                      death_due_to_AN == 1 |
+                      
+                      # HES data
+                      HES_AN_case  ~ 1,
+                   
+                   TRUE ~ 0 # Not AN case
+                     )
+         )
+
+# Check
+dat2 %>%
+  count(AN_case) # 1446
+```
+
+Explore where AN cases were identified
+```{r PGC numbers anorexia nervosa origin case identification}
+table <- dat2 %>%
+  filter(AN_case == 1) %>%
+  group_by(GP_anorexia_nervosa_case,
+           GP_anorexia_case,
+           death_due_to_AN,
+           AN_MHQ,
+           HES_AN_case) %>%
+  count()
+
+table
+
+# Double check how many are GP only (for info on additional cases obtained via medical records)
+GP_cases <- dat2 %>% 
+  filter(
+       (
+         (GP_anorexia_nervosa_case == 1 |
+           GP_anorexia_case == 1) &
+          
+          ((death_due_to_AN == 0 |
+          is.na(death_due_to_AN)) &
+           (AN_MHQ == 0 |
+          is.na(AN_MHQ)) &
+           (HES_AN_case ==0 |
+              is.na(HES_AN_case)))
+           ) 
+  )
+
+nrow(GP_cases) # 487
+```
+
+
+## BE narrow cases
+Narrowly defined binge eating: All individuals who meet any of the following criteria will be coded as “BE_narrow = 1”:
+       
+1. Eating an unusually large amount of food in an unusually short period of time with loss of control when doing so, and these episodes occurred on average at least once a week for at least three months (= DSM-5 frequency and duration criteria);
+      
+2. Has received a clinical diagnosis of BN or BED via hospital or register records or a structured clinical interview;
+             a. If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if symptom-level data confirm that they endorse the symptoms as described in item 1 of narrowly defined binge eating);
+   
+3. Has a self-reported diagnosis of BN or BED, with specification that this has been confirmed by a healthcare professional; If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if symptom-level confirms that they endorse the symptoms as described in item 1 of narrowly defined binge eating).
+```{r PGC numbers BE narrow overall cases}
+dat2 <- dat2 %>%
+  mutate(BE_narrow =
+           case_when( # MHQ data
+                      BN_MHQ == 1 | 
+                        
+                      # GP data
+                      GP_narrow_BE == 1 |
+
+                      # HES data
+                      ICD10_BN == 1 ~ 1
+                     )
+         )
+
+dat2 %>%
+  count(BE_narrow) # 657  
+```
+
+Explore where narrow BE cases were identified
+```{r PGC numbers BE narrow origin case identification}
+dat2 %>%
+  filter(BE_narrow == 1) %>%
+  group_by(BN_MHQ,
+           GP_narrow_BE,
+           ICD10_BN) %>%
+  count()
+```
+
+# BE broad cases
+Broadly defined binge eating: All individuals who meet any of the following criteria will be coded as “BE_broad = 1”:
+1. Eating an unusually large amount of food in an unusually short period of time with loss of control when doing so. Frequency and duration criteria are not required.
+     
+2. If binge eating (BE) is assessed in a single question like: “Have you ever experienced binge eating?” and is endorsed, they will be considered to have BE and be included in the primary BE GWAS. If the question combines several descriptors such as “Have you ever experienced binge eating OR other terms like psychological overeating, compulsive eating, emotional eating, etc.”), it should not be used for the primary BE GWAS but can be used for PRS analyses.
+    
+3. Has a self-reported diagnosis of BN or BED (specification that this has been confirmed by a healthcare professional is not required for this definition);
+           a. If ANBP or OSFED/EDNOS is diagnosed, these individuals will only be included if they explicitly state ‘subthreshold BN’ or ‘subthreshold BED’.
+```{r PGC numbers BE broad overall cases}
+dat2 <- dat2 %>%
+  mutate(BE_broad =
+           case_when( 
+                   BE_narrow == 1 |
+             
+                    # MHQ data
+                    BN_MHQ == 1 | 
+                    
+                   # GP data
+                    GP_broad_BE == 1 |
+                      
+                    # HES data
+                    ICD10_BN == 1 
+                   ~ 1
+                     )
+         )
+
+
+dat2 %>%
+  count(BE_broad) # 692
+```
+
+Explore where broad BE cases were identified
+```{r PGC numbers BE broad origin case identification}
+dat2 %>%
+  filter(BE_broad == 1) %>%
+  group_by(BN_MHQ,
+           GP_broad_BE,
+           GP_narrow_BE,
+           ICD10_BN) %>%
+  count()
+```
+
+Explore how many AN cases have broad BE 
+```{r PGC numbers AN cases comorbid BE}
+dat2 %>%
+  group_by(BE_broad,
+           AN_case) %>%
+  count() # 176 AN cases have BE_broad
+
+dat2 %>%
+  group_by(BE_narrow,
+           AN_case) %>%
+  count() # 176 AN cases have BE_narrow (and therefore also BE_broad)
+```
+
+# Save final dataset
+First, all variables
+```{r save data all variables}
+all_variables_case_dat <- dat2 %>%
+  select(eid,
+       
+         # Cleaned analysis variables
+         BE_narrow,
+         BE_broad,
+         AN_case,
+         
+         # BE variables
+           BN_MHQ,
+           GP_broad_BE,
+           GP_narrow_BE,
+           ICD10_BN,
+         
+         # AN variables
+           GP_anorexia_nervosa_case,
+           GP_anorexia_case,
+           death_due_to_AN,
+           AN_MHQ,
+           HES_AN_case)
+
+saveRDS(object = all_variables_case_dat,
+        file = paste0(UKB_final_files_path, "UKB_PGCED3_all_case_data_070322.rds")) # NB: Have a separate .rmd for file formatting for Plink and regenie
+```
+
+Second, only cleaned variables necessary for analysis
+```{r save data cleaned analysis variables only}
+only_case_dat <- dat2 %>%
+  select(eid,
+         BE_narrow, # 657
+         BE_broad, # 692
+         AN_case) # 1446
+
+saveRDS(object = only_case_dat, file = paste0(UKB_final_files_path, "UKB_PGCED3_only_case_data_070322.rds")) # NB: Have a separate .rmd for file formatting for Plink and regenie
+```
+
+# Checking additional medical record codes
+How are they coded?
+
+Read code 2
+38Do. = Eating disorder examination questionnaire
+38Do0 = EDE-Q (eating disorder examination questionnaire) restraint subscale
+38Do1 = EDE-Q (eating disorder examination questionnaire) eating concern subscale
+38Do2 = EDE-Q (eating disorder examination questionnaire) shape concern subscale
+38Do3 = EDE-Q (eating disorder examination questionnaire) weight concern subscale
+
+Read code 3
+38Do.	=	EDE-Q (eating disorder examination questionnaire)
+38Do.	=	Eating disorder examination questionnaire
+38Do0	=	EDE-Q (eating disorder examination questionnaire) restraint subscale
+38Do1	=	EDE-Q (eating disorder examination questionnaire) eating concern subscale
+38Do2	=	EDE-Q (eating disorder examination questionnaire) shape concern subscale
+38Do3	=	EDE-Q (eating disorder examination questionnaire) weight concern subscale
+X767Q =  Eating behaviour and appetite
+XM0bR	=	Bulimia test
+XM0bR	=	BULIT - Bulimia test
+XM0bS	=	Bulimic investigation test - Edinburgh
+XM0b4	=	Binge eating scale
+XM0b4	=	Binge scale
+```{r GP read in data}
+gp_clinical_diskframe <- bio_record(project_dir, record = "gp_clinical")
+
+gp_clinical <- gp_clinical_diskframe %>%
+    select(eid,
+           read_2,
+           read_3,
+           value1,
+           value2,
+           value3,
+           event_dt # data of clinical event
+           
+           ) %>%
+    collect()
+
+head(gp_clinical)
+```
+
+```{r checking scoring of additional medical record codes read code 2}
+# 38Do. = Eating disorder examination questionnaire
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_EDEQ =
+           case_when(read_2 == "38Do." ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_EDEQ) # 0
+
+# 38Do0 = EDE-Q (eating disorder examination questionnaire) restraint subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_EDEQ_restraint =
+           case_when(read_2 == "38Do0" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_EDEQ_restraint) # 0
+
+
+# 38Do1 = EDE-Q (eating disorder examination questionnaire) eating concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_EDEQ_eating_concern =
+           case_when(read_2 == "38Do1" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_EDEQ_restraint) # 0
+
+# 38Do2 = EDE-Q (eating disorder examination questionnaire) shape concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_EDEQ_shape_concern =
+           case_when(read_2 == "38Do2" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_EDEQ_shape_concern) # 0
+
+
+# 38Do3 = EDE-Q (eating disorder examination questionnaire) weight concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_2_EDEQ_weight_concern =
+           case_when(read_2 == "38Do3" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_2_EDEQ_weight_concern) # 0
+```
+
+
+```{r checking scoring of additional medical record codes read code 3}
+# 38Do.	=	Eating disorder examination questionnaire
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_EDEQ =
+           case_when(read_3 == "38Do." ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_EDEQ) # 0
+
+# 38Do0	=	EDE-Q (eating disorder examination questionnaire) restraint subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_EDEQ_restraint =
+           case_when(read_3 == "38Do0" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_EDEQ_restraint) # 0
+
+
+# 38Do1	=	EDE-Q (eating disorder examination questionnaire) eating concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_EDEQ_eating_concern =
+           case_when(read_3 == "38Do1" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_EDEQ_restraint) # 0
+
+# 38Do2	=	EDE-Q (eating disorder examination questionnaire) shape concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_EDEQ_shape_concern =
+           case_when(read_3 == "38Do2" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_EDEQ_shape_concern) # 0
+
+
+# 38Do3	=	EDE-Q (eating disorder examination questionnaire) weight concern subscale
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_EDEQ_weight_concern =
+           case_when(read_3 == "38Do3" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_EDEQ_weight_concern) # 0
+
+# X767Q =  Eating behaviour and appetite
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_eating_beh_and_appetite =
+           case_when(read_3 == "X767Q" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_eating_beh_and_appetite) # 42
+
+# XM0bR	=	Bulimia test
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_bulimia_test =
+           case_when(read_3 == "XM0bR" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_bulimia_test) # 0
+
+# XM0bS	=	Bulimic investigation test - Edinburgh
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_bulimic_investigation_test =
+           case_when(read_3 == "XM0bS" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_bulimic_investigation_test) # 0
+
+# XM0b4	=	Binge eating scale AND binge scale
+gp_clinical <- gp_clinical %>%
+  mutate(read_3_binge_eating_binge_scale =
+           case_when(read_3 == "XM0b4" ~ 1)
+  )
+
+gp_clinical %>%
+  count(read_3_binge_eating_binge_scale) # 0
+```
+
+X767Q =  Eating behaviour and appetite
+42 entries with this variable. Is there any other information available?
+```{r checking X767Q eating behaviour and appetite}
+# X767Q =  Eating behaviour and appetite; checking for more information
+gp_clinical %>%
+    filter(read_3 == "X767Q") %>%
+    count(value1)
+
+gp_clinical %>%
+    filter(read_3 == "X767Q") %>%
+    count(value2)
+
+gp_clinical %>%
+    filter(read_3 == "X767Q") %>%
+    count(value3)
+
+```
+07/03/22: No other information available. Can not use this code in any way.
+
+
+
+# Covariates - available in UKB:
+• Age (i.e., when assessed);
+• Sex (biological sex at birth);
+• Current BMI (at time of assessment)
+
+Don't think UKB has:
+• Age at onset;
+• Controls: Minimum adult BMI;
+• Cases: Minimum lifetime eating disorder-related body mass index (BMI);
+• Maximum lifetime BMI;
+
+You need a file with required fields, one per line, no header.
+```{r COVARIATES read in data}
+# Point to the project directory
+project_dir <- paste0(file = project_dir_path)
+
+# Read the project field-to-name “field finder” file
+f <- ukbkings::bio_field(project_dir)
+
+# inspect the variable metadata
+head(f)
+glimpse(f)
+
+# display the number of baskets included.
+f %>%
+distinct(basket)
+```
+
+Search for variables required 
+```{r COVARIATES search for required variables}
+f %>%
+select(name, field) %>%
+page(method = "print")
+```
+
+Add their field codes to a file, one per line, no header. You can page through the file.
+```{r COVARIATES add field code to file}
+strings <- c("eid",
+             "31", # sex
+             "21022", # age at recruitment
+             "21001" # BMI (0 = Initial assessment visit)
+             ) 
+
+f %>%
+select(field, name) %>%
+filter(str_detect(field,
+                  paste(strings,
+                        collapse = "|"))) %>%
+  bio_field_add("small_field_subset.txt")
+```
+
+Read required fields and save as an rds file in your user directory. Argument out should be a path to your UKB user directory
+```{r COVARIATES save required fields as rds}
+bio_phen(
+ project_dir,
+ field = "small_field_subset.txt",
+ out = "small_phenotype_subset"
+)
+```
+
+Check the size of your file and read in your dataset
+```{r COVARIATES read in datasest}
+system("ls -lh small_phenotype_subset.rds")
+df <- readRDS("small_phenotype_subset.rds")
+```
+
+Rename columns from the default UKB field names to the descriptive names used in the field-to-name “field finder” name column.
+```{r COVARIATES rename columns using bio_rename}
+df <- bio_rename(df, f)
+nrow(df)
+```
+
+Check col names - select relevant ones
+```{r COVARIATES select relevant columns}
+colnames(df)
+
+covariates <- df %>%
+  select(eid,
+         sex = sex_f31_0_0, # Sex
+         bmi_at_initial_recruitment = `body_mass_index_(bmi)_f21001_0_0`, # BMI at initial recruitment
+         age_at_recruitment = age_at_recruitment_f21022_0_0 # age at recruitment
+         )
+```
+
+# Additional - PCs and batch (from Lee)
+```{r read in covariate data}
+covar_dat <- readRDS(file = UKB_final_files_path, "UKB_PGCED3_covariates.rds")
+
+# Check
+colnames(covar_dat)
+```
+
+Read in PC data
+```{r read in PC data from Lee}
+covar_PCs <- read.table(paste0(PCs_file_path, "pcs.txt")) # ~40 PCs, we only want up to PC 6
+
+# Check
+colnames(covar_PCs)
+head(covar_PCs)
+
+# Rename columns
+covar_PCs_select_columns <- covar_PCs %>%
+  select(IID = V2,
+         PC1 = V3,
+         PC2 = V4,
+         PC3 = V5,
+         PC4 = V6,
+         PC5 = V7,
+         PC6 = V8
+         )
+
+# Check
+colnames(covar_PCs_select_columns)
+head(covar_PCs_select_columns)
+
+# Drop row 1
+PCs_dat_final <- covar_PCs_select_columns[-c(1), ]
+
+# Check
+head(PCs_dat_final)
+nrow(PCs_dat_final)
+```
+
+# DENTIST
+Read in batch data (for DENTIST i.e., plink format)
+```{r read in batch data from Lee DENTIST format}
+covar_batch <- read.table(paste0(ukb18177_genotyped_path, "ukb18177_glanville_binary_pre_qc.fam")) # text file. Can cross-check sex information with covariate file to check for errors!
+
+# Check freq
+questionr::freq(covar_batch$V6)
+head(covar_batch)
+
+# Assign dummy column
+columns.dummy <- c(
+"V6"
+)
+
+# Convert to binary columns
+covar_batch_dummy <- fastDummies::dummy_cols(covar_batch,
+                                     select_columns = columns.dummy)
+
+# Check above code worked
+head(covar_batch_dummy)
+
+# Rename other columns
+covar_batch_dummy <- covar_batch_dummy %>% rename(
+       FID = V1,
+       IID = V2,
+       Ma = V3,
+       Pa = V4,
+      Sex = V5
+       )
+
+# Check above code worked
+head(covar_batch_dummy)
+
+# Drop original batch column (V6)
+covar_batch_dummy = subset(covar_batch_dummy,
+                           select = -c(V6) )
+
+
+# Remove one batch, i.e., assign everyone to 0 for that batch
+covar_batch_dummy <- covar_batch_dummy %>%
+  mutate(V6_Batch_b001 =
+           case_when(!is.na(V6_Batch_b001) ~ 0
+                     ))
+
+# Check above code worked (everyone should be 0)
+questionr::freq(covar_batch_dummy$V6_Batch_b001)
+```
+
+```{r merge the two files PC and batch for DENTIST}
+# Change IID to numeric in PC data
+PCs_dat_final$IID <- as.numeric(paste(PCs_dat_final$IID))
+
+PCS_and_batch_dentist <- dplyr::full_join(covar_batch_dummy,
+                                  PCs_dat_final,
+                                  by = "IID")
+
+# Check
+head(PCS_and_batch_dentist)
+colnames(PCS_and_batch_dentist)
+nrow(PCS_and_batch_dentist)
+```
+
+```{r merge with covariate data for DENIST}
+covar_dat_to_merge <- covar_dat %>%
+  select(IID = eid,
+         sex,
+         bmi_at_initial_recruitment,
+         age_at_recruitment)
+
+
+# Merge
+covar_dat_batch_PC_DENTIST <- dplyr::full_join(PCS_and_batch_dentist,
+                                       covar_dat_to_merge,
+                                       by ="IID")
+
+rownames(covar_dat_batch_PC_DENTIST) <- NULL
+
+# Check 
+nrow(covar_dat_batch_PC_DENTIST)
+colnames(covar_dat_batch_PC_DENTIST)
+```
+
+# Need to add centre info 
+```{r add centre info DENTIST}
+centre_info <- read_tsv(file = paste0(centre_info_path, "UKB_PGCED3_covariates_aligned.txt"))
+
+head(centre_info)
+
+centre_info <- centre_info %>%
+  select(IID,
+         centre)
+
+# Merge
+covar_dat_batch_PC_centre_DENTIST <- dplyr::full_join(covar_dat_batch_PC_DENTIST,
+                                       centre_info,
+                                       by ="IID")
+
+# Check 
+head(covar_dat_batch_PC_centre_DENTIST)
+```
+
+covariate files need to have no missing data (for Regenie)
+```{r remove missing data for DENTIST}
+covar_dat_batch_PC_centre_DENTIST_no_NA <- covar_dat_batch_PC_centre_DENTIST[complete.cases(covar_dat_batch_PC_centre_DENTIST), ]
+
+# Check
+head(covar_dat_batch_PC_centre_DENTIST_no_NA)
+```
+
+```{r save covar data with batch and PC info no NAs DENTIST}
+write_tsv(covar_dat_batch_PC_centre_DENTIST_no_NA,
+          file = paste0(UKB_final_files_path, "UKB_PGCED3_covariates_merged_PC_batch_no_NA_DENTIST.txt"))
+```
+
+# REGENIE
+Read in batch data (for Regenie)
+```{r read in batch data from Lee regenie format}
+covar_batch <- read.table(paste0(ukb18177_genotyped_path, "ukb18177_glanville_binary_pre_qc.fam")) # text file. Can cross-check sex information with covariate file to check for errors!
+
+# Check
+colnames(covar_batch)
+head(covar_batch)
+
+# Rename columns
+covar_batch_select_columns <- covar_batch %>%
+  select(FID = V1,
+         IID = V2,
+         Ma = V3,
+         Pa = V4,
+         Sex = V5,
+         Batch = V6)
+
+# Check
+head(covar_batch_select_columns)
+
+# How many batches?
+covar_batch_select_columns %>%
+  count(Batch)
+
+# Create new 'value' columns
+covar_batch_select_columns <- covar_batch_select_columns %>%
+  mutate(value =
+           case_when(
+             !is.na(FID) ~ 1
+           ))
+
+# Create new columns for each 'Batch' variable
+covar_batch_select_columns_batch_wide <- covar_batch_select_columns %>%
+  tidyr::pivot_wider(id_cols = c(FID, IID),
+                     names_from = Batch,
+                     values_from = value
+                     )
+
+
+# Convert all NAs to 0s (contains 'Batch')
+covar_batch_select_columns_batch_wide_no_NAs <- covar_batch_select_columns_batch_wide %>%
+  mutate(across(contains("Batch"),
+                ~case_when(
+                  is.na(.) ~ 0,
+                  TRUE ~ .
+                )
+  )
+  )
+
+
+# Check this worked
+head(covar_batch_select_columns_batch_wide_no_NAs)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs2 <- covar_batch_select_columns_batch_wide_no_NAs %>%
+  mutate(across(contains("UKBi"),
+                ~case_when(
+                  is.na(.) ~ 0,
+                  TRUE ~ .
+                )
+  )
+  )
+
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs2 %>%
+  count(UKBiLEVEAX_b7)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs3 <- covar_batch_select_columns_batch_wide_no_NAs2 %>%
+  mutate(dropout =
+                case_when(
+                  is.na(dropout) ~ 0,
+                  TRUE ~ dropout
+                )
+  )
+  
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs3 %>%
+  count(dropout)
+
+# Convert all NAs to 0s (contains 'UKBi')
+covar_batch_select_columns_batch_wide_no_NAs4 <- covar_batch_select_columns_batch_wide_no_NAs3 %>%
+  mutate(redacted3 =
+                case_when(
+                  is.na(redacted3) ~ 0,
+                  TRUE ~ redacted3
+                )
+  )
+
+# Check this worked
+covar_batch_select_columns_batch_wide_no_NAs4 %>%
+  count(redacted3)
+
+# Final check
+head(covar_batch_select_columns_batch_wide_no_NAs4)
+
+# Select columns to merge
+covar_batch_select_columns_to_merge <- covar_batch_select_columns %>%
+  select(FID,
+         IID,
+         Ma,
+         Pa,
+         Sex)
+
+# Merge with previous dataset with Ma, Pa, and Sex
+batch_dat_final <- dplyr::full_join(covar_batch_select_columns_batch_wide_no_NAs4,
+                                    covar_batch_select_columns_to_merge,
+                                    by = c("FID",
+                                           "IID"))
+
+colnames(batch_dat_final)
+nrow(batch_dat_final)
+```
+
+```{r merge the two files PC and batch for Regnenie}
+# Change IID to numeric in PC data
+PCs_dat_final$IID <- as.numeric(paste(PCs_dat_final$IID))
+
+PCS_and_batch <- dplyr::full_join(batch_dat_final,
+                                  PCs_dat_final,
+                                  by = "IID")
+
+# Check
+head(PCS_and_batch)
+colnames(PCS_and_batch)
+nrow(PCS_and_batch)
+```
+
+```{r merge with covariate data for Regenie}
+covar_dat_to_merge <- covar_dat %>%
+  select(IID = eid,
+         sex,
+         bmi_at_initial_recruitment,
+         age_at_recruitment)
+
+
+# Merge
+covar_dat_batch_PC <- dplyr::full_join(PCS_and_batch,
+                                       covar_dat_to_merge,
+                                       by ="IID")
+
+# Check 
+nrow(covar_dat_batch_PC)
+rownames(covar_dat_batch_PC) <- NULL
+colnames(covar_dat_batch_PC)
+```
+
+```{r save covar data with batch and PC info regenie}
+write_tsv(covar_dat_batch_PC, file = paste0(UKB_final_files_path, "UKB_PGCED3_covariates_merged_PC_batch.txt"))
+```
+
+# regenie covariate files need to have no missing data.
+```{r remove missing data for regenie}
+covar_dat <- read_tsv(paste0(UKB_final_files_path, "UKB_PGCED3_covariates_merged_PC_batch.txt"))
+
+covar_dat_no_na <- covar_dat[complete.cases(covar_dat), ]
+```
+
+```{r save covar data with batch and PC info no NAs regenie}
+write_tsv(covar_dat_no_na, file = paste0(UKB_final_files_path, "UKB_PGCED3_covariates_merged_PC_batch_no_NA.txt"))
+```
+
